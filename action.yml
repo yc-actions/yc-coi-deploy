@@ -1,0 +1,58 @@
+name: 'YC COI Container Deploy'
+description: 'GitHub Action to deploy container to Yandex Cloud COI VM'
+author: 'Nikolay Matrosov'
+inputs:
+  yc-sa-json-credentials:
+    required: true
+    description: 'Json containing authorized key for Service Account. More info https://cloud.yandex.ru/docs/container-registry/operations/authentication#sa-json'
+  folder-id:
+    required: true
+    description: 'Folder ID'
+  vm-name:
+    required: true
+    description: 'VM name to find or create in the provided folder.'
+  vm-service-account-id:
+    required: false
+    description: 'Id of service account that will be attached to VM.'
+  vm-service-account-name:
+    required: false
+    description: 'Name of service account that will be attached to VM. Will be used to find out the ID of SA.'
+  vm-cores:
+    required: false
+    description: 'Number of Cores'
+    default: '2'
+  vm-memory:
+    required: false
+    description: 'Memory. Format: `\\d(Mb|Gb)`. E.g. 1Gb'
+    default: '1GB'
+  vm-core-fraction:
+    required: false
+    description: 'Core fraction'
+    default: '100'
+  vm-disk-size:
+    required: false
+    description: 'Disk size. Format: `\\d(Mb|Gb)`. E.g. 30Gb'
+    default: '30GB'
+  vm-zone-id:
+    required: false
+    description: 'Zone ID'
+    default: 'ru-central1-a'
+  vm-subnet-id:
+    required: true
+    description: 'The subnet ID where the VM will be cretaed'
+  vm-platform-id:
+    required: false
+    description: 'Compute platform Id'
+    default: 'standard-v3'
+  user-data-path:
+    required: true
+    description: 'Path to the `user-data.yaml` file inside repo.'
+  docker-compose-path:
+    required: true
+    description: 'Path to the `docker-compose.yaml` file inside repo.'
+branding:
+  color: blue
+  icon: upload-cloud
+runs:
+  using: 'node12'
+  main: 'dist/index.js'
