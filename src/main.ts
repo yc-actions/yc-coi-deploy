@@ -258,10 +258,7 @@ async function run(): Promise<void> {
       await updateMetadata(session, instanceService, vmId, vmInputs);
     }
   } catch (error) {
-    if (error instanceof Error) {
-      core.error(error);
-      core.setFailed(error.message);
-    }
+    core.setFailed(error as Error);
   }
 }
 
