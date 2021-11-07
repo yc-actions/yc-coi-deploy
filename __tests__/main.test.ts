@@ -20,6 +20,7 @@ test.skip('test runs', () => {
     res = cp.execFileSync(np, [ip], options);
   } catch (e) {
     console.log((e as any).stdout.toString());
+    console.log((e as any).stderr.toString());
   }
   console.log(res?.toString());
 });

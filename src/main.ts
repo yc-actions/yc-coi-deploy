@@ -20,6 +20,7 @@ import {
   ServiceAccountServiceService,
 } from '@nikolay.matrosov/yc-ts-sdk/lib/generated/yandex/cloud/iam/v1/service_account_service';
 import {Operation} from '@nikolay.matrosov/yc-ts-sdk/lib/generated/yandex/cloud/operation/operation';
+import {completion} from '@nikolay.matrosov/yc-ts-sdk/lib/src/operation';
 import {fromServiceAccountJsonFile} from '@nikolay.matrosov/yc-ts-sdk/lib/src/TokenService/iamTokenService';
 import * as fs from 'fs';
 import Mustache from 'mustache';
@@ -28,13 +29,16 @@ import * as path from 'path';
 import {parseMemory} from './memory';
 
 async function findCoiImageId(imageService: Client<typeof ImageServiceService, {}>): Promise<string> {
+  core.startGroup('Find COI image id');
+
   const res = await imageService.getLatestByFamily(
     GetImageLatestByFamilyRequest.fromPartial({
       folderId: 'standard-images',
       family: 'container-optimized-image',
     }),
   );
-
+  core.info(`COI image id: ${res.id}`);
+  core.endGroup();
   return res.id;
 }
 
@@ -58,12 +62,14 @@ async function findVm(
   folderId: string,
   name: string,
 ): Promise<string | null> {
+  core.startGroup('Find VM by name');
   const res = await instanceService.list(
     ListInstancesRequest.fromPartial({
       folderId,
       filter: `name = '${name}'`,
     }),
   );
+  core.endGroup();
   if (res.instances.length) {
     return res.instances[0].id;
   }
@@ -98,13 +104,17 @@ function prepareConfig(filePath: string): string {
 }
 
 async function createVm(
+  session: Session,
   instanceService: Client<typeof InstanceServiceService, {}>,
   imageService: Client<typeof ImageServiceService, {}>,
   vmParams: VmParams,
   repo: {owner: string; repo: string},
 ): Promise<void> {
   const coiImageId = await findCoiImageId(imageService);
-  instanceService.create(
+
+  core.startGroup('Create new VM');
+
+  let op = await instanceService.create(
     CreateInstanceRequest.fromPartial({
       folderId: vmParams.folderId,
       name: vmParams.name,
@@ -140,14 +150,20 @@ async function createVm(
       serviceAccountId: vmParams.serviceAccountId,
     }),
   );
+  op = await completion(op, session);
+  handleOperationError(op);
+  core.endGroup();
 }
 
 async function updateMetadata(
+  session: Session,
   instanceService: Client<typeof InstanceServiceService, {}>,
   instanceId: string,
   vmParams: VmParams,
 ): Promise<Operation> {
-  return instanceService.updateMetadata(
+  core.startGroup('Update metadata');
+
+  let op = await instanceService.updateMetadata(
     UpdateInstanceMetadataRequest.fromPartial({
       instanceId,
       upsert: {
@@ -156,9 +172,15 @@ async function updateMetadata(
       },
     }),
   );
+  op = await completion(op, session);
+  handleOperationError(op);
+  core.endGroup();
+  return op;
 }
 
 function parseVmInputs(): VmParams {
+  core.startGroup('Parsing Action Inputs');
+
   const folderId: string = core.getInput('folder-id', {
     required: true,
   });
@@ -180,6 +202,7 @@ function parseVmInputs(): VmParams {
   const diskSize: number = parseMemory(core.getInput('vm-disk-size') || '30Gb');
   const coreFraction: number = parseInt(core.getInput('vm-core-fraction') || '100', 10);
 
+  core.endGroup();
   return {
     diskSize,
     subnetId,
@@ -230,15 +253,26 @@ async function run(): Promise<void> {
 
     const vmId = await findVm(instanceService, vmInputs.folderId, vmInputs.name);
     if (vmId === null) {
-      await createVm(instanceService, imageService, vmInputs, github.context.repo);
+      await createVm(session, instanceService, imageService, vmInputs, github.context.repo);
     } else {
-      await updateMetadata(instanceService, vmId, vmInputs);
+      await updateMetadata(session, instanceService, vmId, vmInputs);
     }
   } catch (error) {
     if (error instanceof Error) {
       core.error(error);
       core.setFailed(error.message);
     }
+  }
+}
+
+function handleOperationError(operation: Operation): void {
+  if (operation.error) {
+    const details = operation.error?.details;
+    if (details) {
+      throw Error(`${operation.error.code}: ${operation.error.message} (${details.join(', ')})`);
+    }
+
+    throw Error(`${operation.error.code}: ${operation.error.message}`);
   }
 }
 

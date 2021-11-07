@@ -55,6 +55,7 @@ const image_service_1 = __nccwpck_require__(9476);
 const instance_1 = __nccwpck_require__(825);
 const instance_service_1 = __nccwpck_require__(9893);
 const service_account_service_1 = __nccwpck_require__(6809);
+const operation_1 = __nccwpck_require__(1359);
 const iamTokenService_1 = __nccwpck_require__(9489);
 const fs = __importStar(__nccwpck_require__(5747));
 const mustache_1 = __importDefault(__nccwpck_require__(8272));
@@ -62,10 +63,13 @@ const path = __importStar(__nccwpck_require__(5622));
 const memory_1 = __nccwpck_require__(596);
 function findCoiImageId(imageService) {
     return __awaiter(this, void 0, void 0, function* () {
+        core.startGroup('Find COI image id');
         const res = yield imageService.getLatestByFamily(image_service_1.GetImageLatestByFamilyRequest.fromPartial({
             folderId: 'standard-images',
             family: 'container-optimized-image',
         }));
+        core.info(`COI image id: ${res.id}`);
+        core.endGroup();
         return res.id;
     });
 }
@@ -80,10 +84,12 @@ function resolveServiceAccountId(saService, folderId, name) {
 }
 function findVm(instanceService, folderId, name) {
     return __awaiter(this, void 0, void 0, function* () {
+        core.startGroup('Find VM by name');
         const res = yield instanceService.list(instance_service_1.ListInstancesRequest.fromPartial({
             folderId,
             filter: `name = '${name}'`,
         }));
+        core.endGroup();
         if (res.instances.length) {
             return res.instances[0].id;
         }
@@ -96,10 +102,11 @@ function prepareConfig(filePath) {
     const content = fs.readFileSync(path.join(workspace, filePath)).toString();
     return mustache_1.default.render(content, { env: Object.assign({}, process.env) }, {}, { escape: x => x });
 }
-function createVm(instanceService, imageService, vmParams, repo) {
+function createVm(session, instanceService, imageService, vmParams, repo) {
     return __awaiter(this, void 0, void 0, function* () {
         const coiImageId = yield findCoiImageId(imageService);
-        instanceService.create(instance_service_1.CreateInstanceRequest.fromPartial({
+        core.startGroup('Create new VM');
+        let op = yield instanceService.create(instance_service_1.CreateInstanceRequest.fromPartial({
             folderId: vmParams.folderId,
             name: vmParams.name,
             description: `Created from: ${repo.owner}/${repo.repo}`,
@@ -132,20 +139,29 @@ function createVm(instanceService, imageService, vmParams, repo) {
             ],
             serviceAccountId: vmParams.serviceAccountId,
         }));
+        op = yield (0, operation_1.completion)(op, session);
+        handleOperationError(op);
+        core.endGroup();
     });
 }
-function updateMetadata(instanceService, instanceId, vmParams) {
+function updateMetadata(session, instanceService, instanceId, vmParams) {
     return __awaiter(this, void 0, void 0, function* () {
-        return instanceService.updateMetadata(instance_service_1.UpdateInstanceMetadataRequest.fromPartial({
+        core.startGroup('Update metadata');
+        let op = yield instanceService.updateMetadata(instance_service_1.UpdateInstanceMetadataRequest.fromPartial({
             instanceId,
             upsert: {
                 'user-data': prepareConfig(vmParams.userDataPath),
                 'docker-compose': prepareConfig(vmParams.dockerComposePath),
             },
         }));
+        op = yield (0, operation_1.completion)(op, session);
+        handleOperationError(op);
+        core.endGroup();
+        return op;
     });
 }
 function parseVmInputs() {
+    core.startGroup('Parsing Action Inputs');
     const folderId = core.getInput('folder-id', {
         required: true,
     });
@@ -164,6 +180,7 @@ function parseVmInputs() {
     const memory = (0, memory_1.parseMemory)(core.getInput('vm-memory') || '1Gb');
     const diskSize = (0, memory_1.parseMemory)(core.getInput('vm-disk-size') || '30Gb');
     const coreFraction = parseInt(core.getInput('vm-core-fraction') || '100', 10);
+    core.endGroup();
     return {
         diskSize,
         subnetId,
@@ -208,10 +225,10 @@ function run() {
             }
             const vmId = yield findVm(instanceService, vmInputs.folderId, vmInputs.name);
             if (vmId === null) {
-                yield createVm(instanceService, imageService, vmInputs, github.context.repo);
+                yield createVm(session, instanceService, imageService, vmInputs, github.context.repo);
             }
             else {
-                yield updateMetadata(instanceService, vmId, vmInputs);
+                yield updateMetadata(session, instanceService, vmId, vmInputs);
             }
         }
         catch (error) {
@@ -221,6 +238,16 @@ function run() {
             }
         }
     });
+}
+function handleOperationError(operation) {
+    var _a;
+    if (operation.error) {
+        const details = (_a = operation.error) === null || _a === void 0 ? void 0 : _a.details;
+        if (details) {
+            throw Error(`${operation.error.code}: ${operation.error.message} (${details.join(', ')})`);
+        }
+        throw Error(`${operation.error.code}: ${operation.error.message}`);
+    }
 }
 run();
 
