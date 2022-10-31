@@ -58,9 +58,7 @@ See [action.yml](action.yml) for the full documentation for this action's inputs
 
 ## Permissions
 
-This action requires the following minimum set of permissions:
-
-TODO: add permission set
+To perform this action, it is required that the service account on behalf of which we are acting has granted the `compute.admin` role or greater.
 
 ## License Summary
 
