@@ -39,7 +39,7 @@ inputs:
     default: 'ru-central1-a'
   vm-subnet-id:
     required: true
-    description: 'The subnet ID where the VM will be cretaed'
+    description: 'The subnet ID where the VM will be created'
   vm-platform-id:
     required: false
     description: 'Compute platform Id'
