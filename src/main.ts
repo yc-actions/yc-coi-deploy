@@ -132,7 +132,7 @@ async function createVm(
         mode: AttachedDiskSpec_Mode.READ_WRITE,
         autoDelete: true,
         diskSpec: {
-          typeId: 'network-ssd',
+          typeId: vmParams.diskType,
           size: vmParams.diskSize,
           imageId: coiImageId,
         },
@@ -199,11 +199,13 @@ function parseVmInputs(): VmParams {
   const platformId: string = core.getInput('vm-platform-id') || 'standard-v3';
   const cores: number = parseInt(core.getInput('vm-cores') || '2', 10);
   const memory: number = parseMemory(core.getInput('vm-memory') || '1Gb');
+  const diskType: number = parseMemory(core.getInput('vm-disk-type') || 'network-ssd');
   const diskSize: number = parseMemory(core.getInput('vm-disk-size') || '30Gb');
   const coreFraction: number = parseInt(core.getInput('vm-core-fraction') || '100', 10);
 
   core.endGroup();
   return {
+    diskType,
     diskSize,
     subnetId,
     zoneId,
