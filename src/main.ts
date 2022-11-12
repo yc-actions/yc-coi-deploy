@@ -88,6 +88,7 @@ interface VmParams {
   subnetId: string;
   serviceAccountId: string;
   serviceAccountName: string | undefined;
+  diskType: string;
   diskSize: number;
   folderId: string;
   name: string;
@@ -199,7 +200,7 @@ function parseVmInputs(): VmParams {
   const platformId: string = core.getInput('vm-platform-id') || 'standard-v3';
   const cores: number = parseInt(core.getInput('vm-cores') || '2', 10);
   const memory: number = parseMemory(core.getInput('vm-memory') || '1Gb');
-  const diskType: number = parseMemory(core.getInput('vm-disk-type') || 'network-ssd');
+  const diskType: string = core.getInput('vm-disk-type') || 'network-ssd';
   const diskSize: number = parseMemory(core.getInput('vm-disk-size') || '30Gb');
   const coreFraction: number = parseInt(core.getInput('vm-core-fraction') || '100', 10);
 
