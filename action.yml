@@ -29,6 +29,10 @@ inputs:
     required: false
     description: 'Core fraction'
     default: '100'
+  vm-disk-type:
+    required: false
+    description: 'Disk type. Values: network-ssd, network-hdd, etc. More info https://cloud.yandex.com/en-ru/docs/managed-clickhouse/concepts/storage'
+    default: 'network-ssd'
   vm-disk-size:
     required: false
     description: 'Disk size. Format: `\\d(Mb|Gb)`. E.g. 30Gb'
