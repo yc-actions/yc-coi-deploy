@@ -57,6 +57,13 @@ inputs:
   docker-compose-path:
     required: true
     description: 'Path to the `docker-compose.yaml` file inside repo.'
+outputs:
+  instance_id:
+    description: 'Instance ID'
+  disk_id:
+    description: 'Boot disk ID that was created for the instance'
+  public_ip:
+    description: 'Public IP address that was assigned to the instance'
 branding:
   color: blue
   icon: upload-cloud

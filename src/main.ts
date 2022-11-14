@@ -7,7 +7,7 @@ import {
   GetImageLatestByFamilyRequest,
   ImageServiceService,
 } from '@nikolay.matrosov/yc-ts-sdk/lib/generated/yandex/cloud/compute/v1/image_service';
-import {IpVersion} from '@nikolay.matrosov/yc-ts-sdk/lib/generated/yandex/cloud/compute/v1/instance';
+import {IpVersion, Instance} from '@nikolay.matrosov/yc-ts-sdk/lib/generated/yandex/cloud/compute/v1/instance';
 import {
   AttachedDiskSpec_Mode,
   CreateInstanceRequest,
@@ -105,6 +105,24 @@ function prepareConfig(filePath: string): string {
   return Mustache.render(content, {env: {...process.env}}, {}, {escape: x => x});
 }
 
+function getInstanceFromOperation(op: Operation): Instance | undefined {
+  const v = op.response?.value;
+  if (v !== undefined) {
+    return Instance.decode(v);
+  }
+}
+
+function setOutputs(op: Operation): void {
+  const instance = getInstanceFromOperation(op);
+
+  core.setOutput('instance_id', instance?.id);
+  core.setOutput('disk_id', instance?.bootDisk?.diskId);
+
+  if (instance?.networkInterfaces && instance?.networkInterfaces.length > 0) {
+    core.setOutput('public_ip', instance?.networkInterfaces[0].primaryV4Address?.oneToOneNat?.address);
+  }
+}
+
 async function createVm(
   session: Session,
   instanceService: Client<typeof InstanceServiceService, {}>,
@@ -155,6 +173,7 @@ async function createVm(
   );
   op = await completion(op, session);
   handleOperationError(op);
+  setOutputs(op);
   core.endGroup();
 }
 
@@ -177,6 +196,7 @@ async function updateMetadata(
   );
   op = await completion(op, session);
   handleOperationError(op);
+  setOutputs(op);
   core.endGroup();
   return op;
 }
