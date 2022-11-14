@@ -115,7 +115,7 @@ async function createVm(
 
   core.startGroup('Create new VM');
 
-  let request = CreateInstanceRequest.fromPartial({
+  const request = CreateInstanceRequest.fromPartial({
     folderId: vmParams.folderId,
     name: vmParams.name,
     description: `Created from: ${repo.owner}/${repo.repo}`,
@@ -150,7 +150,7 @@ async function createVm(
     serviceAccountId: vmParams.serviceAccountId,
   });
 
-  core.debug(`CreateInstanceRequest: ${JSON.stringify(request)}`);
+  core.debug(`CreateInstanceRequest: ${CreateInstanceRequest.toJSON(request)}`);
 
   let op = await instanceService.create(request);
   op = await completion(op, session);
