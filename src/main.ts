@@ -155,7 +155,7 @@ async function createVm(
   let op = await instanceService.create(request);
   op = await completion(op, session);
 
-  core.debug(`Operation completed: ${op}`);
+  core.debug(`Operation completed: ${op.description}`);
 
   handleOperationError(op);
   core.endGroup();

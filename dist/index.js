@@ -135,10 +135,10 @@ function createVm(session, instanceService, imageService, vmParams, repo) {
             ],
             serviceAccountId: vmParams.serviceAccountId,
         });
-        core.debug(`CreateInstanceRequest: ${instance_service_1.CreateInstanceRequest.toJSON(request)}`);
+        core.debug(`CreateInstanceRequest`);
         let op = yield instanceService.create(request);
         op = yield (0, operation_1.completion)(op, session);
-        core.debug(`Operation completed: ${JSON.stringify(op)}`);
+        core.debug(`Operation completed: ${op.description}`);
         handleOperationError(op);
         core.endGroup();
     });
