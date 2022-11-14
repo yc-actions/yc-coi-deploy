@@ -115,7 +115,7 @@ async function createVm(
 
   core.startGroup('Create new VM');
 
-  const request = CreateInstanceRequest.fromPartial({
+  let request = CreateInstanceRequest.fromPartial({
     folderId: vmParams.folderId,
     name: vmParams.name,
     description: `Created from: ${repo.owner}/${repo.repo}`,
