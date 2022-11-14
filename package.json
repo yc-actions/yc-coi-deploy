@@ -1,6 +1,6 @@
 {
   "name": "yc-actions-yc-coi-deploy",
-  "version": "1.0.0",
+  "version": "1.1.1",
   "description": "GitHub Action to deploy container to Virtual Machine in Yandex Cloud created from Container Optimized Image.",
   "main": "lib/main.js",
   "scripts": {
