@@ -150,12 +150,12 @@ async function createVm(
     serviceAccountId: vmParams.serviceAccountId,
   });
 
-  core.debug(`CreateInstanceRequest: ${CreateInstanceRequest.toJSON(request)}`);
+  core.debug(`CreateInstanceRequest: ${request}`);
 
   let op = await instanceService.create(request);
   op = await completion(op, session);
 
-  core.debug(`Operation completed: ${op.response}`);
+  core.debug(`Operation completed: ${op}`);
 
   handleOperationError(op);
   core.endGroup();
