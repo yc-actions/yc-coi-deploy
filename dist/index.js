@@ -118,7 +118,7 @@ function createVm(session, instanceService, imageService, vmParams, repo) {
     return __awaiter(this, void 0, void 0, function* () {
         const coiImageId = yield findCoiImageId(imageService);
         core.startGroup('Create new VM');
-        core.setOutput('created', true);
+        core.setOutput('created', 'true');
         let op = yield instanceService.create(instance_service_1.CreateInstanceRequest.fromPartial({
             folderId: vmParams.folderId,
             name: vmParams.name,
@@ -162,7 +162,7 @@ function createVm(session, instanceService, imageService, vmParams, repo) {
 function updateMetadata(session, instanceService, instanceId, vmParams) {
     return __awaiter(this, void 0, void 0, function* () {
         core.startGroup('Update metadata');
-        core.setOutput('created', false);
+        core.setOutput('created', 'false');
         let op = yield instanceService.updateMetadata(instance_service_1.UpdateInstanceMetadataRequest.fromPartial({
             instanceId,
             upsert: {
