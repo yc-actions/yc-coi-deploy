@@ -58,11 +58,11 @@ inputs:
     required: true
     description: 'Path to the `docker-compose.yaml` file inside repo.'
 outputs:
-  instance_id:
+  instance-id:
     description: 'Instance ID'
-  disk_id:
+  disk-id:
     description: 'Boot disk ID that was created for the instance'
-  public_ip:
+  public-ip:
     description: 'Public IP address that was assigned to the instance'
   created:
     description: 'A flag that indicates whether instance was created or updated'

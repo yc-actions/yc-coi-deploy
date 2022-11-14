@@ -108,10 +108,10 @@ function getInstanceFromOperation(op) {
 function setOutputs(op) {
     var _a, _b, _c;
     const instance = getInstanceFromOperation(op);
-    core.setOutput('instance_id', instance === null || instance === void 0 ? void 0 : instance.id);
-    core.setOutput('disk_id', (_a = instance === null || instance === void 0 ? void 0 : instance.bootDisk) === null || _a === void 0 ? void 0 : _a.diskId);
+    core.setOutput('instance-id', instance === null || instance === void 0 ? void 0 : instance.id);
+    core.setOutput('disk-id', (_a = instance === null || instance === void 0 ? void 0 : instance.bootDisk) === null || _a === void 0 ? void 0 : _a.diskId);
     if ((instance === null || instance === void 0 ? void 0 : instance.networkInterfaces) && (instance === null || instance === void 0 ? void 0 : instance.networkInterfaces.length) > 0) {
-        core.setOutput('public_ip', (_c = (_b = instance === null || instance === void 0 ? void 0 : instance.networkInterfaces[0].primaryV4Address) === null || _b === void 0 ? void 0 : _b.oneToOneNat) === null || _c === void 0 ? void 0 : _c.address);
+        core.setOutput('public-ip', (_c = (_b = instance === null || instance === void 0 ? void 0 : instance.networkInterfaces[0].primaryV4Address) === null || _b === void 0 ? void 0 : _b.oneToOneNat) === null || _c === void 0 ? void 0 : _c.address);
     }
 }
 function createVm(session, instanceService, imageService, vmParams, repo) {

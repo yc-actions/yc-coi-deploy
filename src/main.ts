@@ -115,11 +115,11 @@ function getInstanceFromOperation(op: Operation): Instance | undefined {
 function setOutputs(op: Operation): void {
   const instance = getInstanceFromOperation(op);
 
-  core.setOutput('instance_id', instance?.id);
-  core.setOutput('disk_id', instance?.bootDisk?.diskId);
+  core.setOutput('instance-id', instance?.id);
+  core.setOutput('disk-id', instance?.bootDisk?.diskId);
 
   if (instance?.networkInterfaces && instance?.networkInterfaces.length > 0) {
-    core.setOutput('public_ip', instance?.networkInterfaces[0].primaryV4Address?.oneToOneNat?.address);
+    core.setOutput('public-ip', instance?.networkInterfaces[0].primaryV4Address?.oneToOneNat?.address);
   }
 }
 
