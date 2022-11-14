@@ -115,43 +115,48 @@ async function createVm(
 
   core.startGroup('Create new VM');
 
-  let op = await instanceService.create(
-    CreateInstanceRequest.fromPartial({
-      folderId: vmParams.folderId,
-      name: vmParams.name,
-      description: `Created from: ${repo.owner}/${repo.repo}`,
-      zoneId: vmParams.zoneId,
-      platformId: vmParams.platformId,
-      resourcesSpec: vmParams.resourcesSpec,
-      metadata: {
-        'user-data': prepareConfig(vmParams.userDataPath),
-        'docker-compose': prepareConfig(vmParams.dockerComposePath),
-      },
-      labels: {},
+  let request = CreateInstanceRequest.fromPartial({
+    folderId: vmParams.folderId,
+    name: vmParams.name,
+    description: `Created from: ${repo.owner}/${repo.repo}`,
+    zoneId: vmParams.zoneId,
+    platformId: vmParams.platformId,
+    resourcesSpec: vmParams.resourcesSpec,
+    metadata: {
+      'user-data': prepareConfig(vmParams.userDataPath),
+      'docker-compose': prepareConfig(vmParams.dockerComposePath),
+    },
+    labels: {},
 
-      bootDiskSpec: {
-        mode: AttachedDiskSpec_Mode.READ_WRITE,
-        autoDelete: true,
-        diskSpec: {
-          typeId: vmParams.diskType,
-          size: vmParams.diskSize,
-          imageId: coiImageId,
-        },
+    bootDiskSpec: {
+      mode: AttachedDiskSpec_Mode.READ_WRITE,
+      autoDelete: true,
+      diskSpec: {
+        typeId: vmParams.diskType,
+        size: vmParams.diskSize,
+        imageId: coiImageId,
       },
-      networkInterfaceSpecs: [
-        {
-          subnetId: vmParams.subnetId,
-          primaryV4AddressSpec: {
-            oneToOneNatSpec: {
-              ipVersion: IpVersion.IPV4,
-            },
+    },
+    networkInterfaceSpecs: [
+      {
+        subnetId: vmParams.subnetId,
+        primaryV4AddressSpec: {
+          oneToOneNatSpec: {
+            ipVersion: IpVersion.IPV4,
           },
         },
-      ],
-      serviceAccountId: vmParams.serviceAccountId,
-    }),
-  );
+      },
+    ],
+    serviceAccountId: vmParams.serviceAccountId,
+  });
+
+  core.debug("CreateInstanceRequest: " + JSON.stringify(request))
+
+  let op = await instanceService.create(request);
   op = await completion(op, session);
+
+  core.debug("Operation completed: " + JSON.stringify(op))
+
   handleOperationError(op);
   core.endGroup();
 }
