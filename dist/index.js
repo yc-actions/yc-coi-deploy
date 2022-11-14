@@ -51,8 +51,7 @@ const image_service_1 = __nccwpck_require__(9476);
 const instance_1 = __nccwpck_require__(825);
 const instance_service_1 = __nccwpck_require__(9893);
 const service_account_service_1 = __nccwpck_require__(6809);
-const operation_1 = __nccwpck_require__(7745);
-const operation_2 = __nccwpck_require__(1359);
+const operation_1 = __nccwpck_require__(1359);
 const iamTokenService_1 = __nccwpck_require__(9489);
 const fs = __importStar(__nccwpck_require__(7147));
 const mustache_1 = __importDefault(__nccwpck_require__(8272));
@@ -100,8 +99,14 @@ function prepareConfig(filePath) {
     const content = fs.readFileSync(path.join(workspace, filePath)).toString();
     return mustache_1.default.render(content, { env: Object.assign({}, process.env) }, {}, { escape: x => x });
 }
-function createVm(session, instanceService, imageService, vmParams, repo) {
+function getInstanceFromOperation(op) {
     var _a;
+    const v = (_a = op.response) === null || _a === void 0 ? void 0 : _a.value;
+    if (v !== undefined) {
+        return instance_1.Instance.decode(v);
+    }
+}
+function createVm(session, instanceService, imageService, vmParams, repo) {
     return __awaiter(this, void 0, void 0, function* () {
         const coiImageId = yield findCoiImageId(imageService);
         core.startGroup('Create new VM');
@@ -140,11 +145,13 @@ function createVm(session, instanceService, imageService, vmParams, repo) {
         });
         core.debug(`CreateInstanceRequest:\n${js_yaml_1.default.dump(instance_service_1.CreateInstanceRequest.toJSON(request))}`);
         let op = yield instanceService.create(request);
-        op = yield (0, operation_2.completion)(op, session);
-        const v = (_a = op.response) === null || _a === void 0 ? void 0 : _a.value;
-        if (v !== undefined) {
-            const instance = instance_1.Instance.decode(v);
-            core.debug(`Got instance:\n${js_yaml_1.default.dump(instance_1.Instance.toJSON(instance))}`);
+        op = yield (0, operation_1.completion)(op, session);
+        const instance = getInstanceFromOperation(op);
+        if (instance !== undefined) {
+            core.debug(`Created instance:\n${js_yaml_1.default.dump(instance_1.Instance.toJSON(instance))}`);
+        }
+        else {
+            core.debug(`Unable to get instance from operation`);
         }
         handleOperationError(op);
         core.endGroup();
@@ -162,8 +169,14 @@ function updateMetadata(session, instanceService, instanceId, vmParams) {
         });
         core.debug(`UpdateInstanceMetadataRequest:\n${js_yaml_1.default.dump(instance_service_1.UpdateInstanceMetadataRequest.toJSON(request))}`);
         let op = yield instanceService.updateMetadata(request);
-        op = yield (0, operation_2.completion)(op, session);
-        core.debug(`Operation completed:\n${js_yaml_1.default.dump(operation_1.Operation.toJSON(op))}`);
+        op = yield (0, operation_1.completion)(op, session);
+        const instance = getInstanceFromOperation(op);
+        if (instance !== undefined) {
+            core.debug(`Updated instance:\n${js_yaml_1.default.dump(instance_1.Instance.toJSON(instance))}`);
+        }
+        else {
+            core.debug(`Unable to get instance from operation`);
+        }
         handleOperationError(op);
         core.endGroup();
         return op;

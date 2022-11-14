@@ -105,6 +105,13 @@ function prepareConfig(filePath: string): string {
   return Mustache.render(content, {env: {...process.env}}, {}, {escape: x => x});
 }
 
+function getInstanceFromOperation(op: Operation): Instance | undefined {
+  const v = op.response?.value;
+  if (v !== undefined) {
+    return Instance.decode(v);
+  }
+}
+
 async function createVm(
   session: Session,
   instanceService: Client<typeof InstanceServiceService, {}>,
@@ -156,11 +163,12 @@ async function createVm(
   let op = await instanceService.create(request);
   op = await completion(op, session);
 
-  const v = op.response?.value;
-  if (v !== undefined) {
-    const instance = Instance.decode(v);
+  const instance = getInstanceFromOperation(op);
 
-    core.debug(`Got instance:\n${yaml.dump(Instance.toJSON(instance))}`);
+  if (instance !== undefined) {
+    core.debug(`Created instance:\n${yaml.dump(Instance.toJSON(instance))}`);
+  } else {
+    core.debug(`Unable to get instance from operation`);
   }
 
   handleOperationError(op);
@@ -188,7 +196,13 @@ async function updateMetadata(
   let op = await instanceService.updateMetadata(request);
   op = await completion(op, session);
 
-  core.debug(`Operation completed:\n${yaml.dump(Operation.toJSON(op))}`);
+  const instance = getInstanceFromOperation(op);
+
+  if (instance !== undefined) {
+    core.debug(`Updated instance:\n${yaml.dump(Instance.toJSON(instance))}`);
+  } else {
+    core.debug(`Unable to get instance from operation`);
+  }
 
   handleOperationError(op);
   core.endGroup();
