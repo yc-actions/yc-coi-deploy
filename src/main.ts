@@ -27,6 +27,7 @@ import Mustache from 'mustache';
 import {Client} from 'nice-grpc';
 import * as path from 'path';
 import {parseMemory} from './memory';
+import yaml from 'js-yaml';
 
 async function findCoiImageId(imageService: Client<typeof ImageServiceService, {}>): Promise<string> {
   core.startGroup('Find COI image id');
@@ -150,7 +151,7 @@ async function createVm(
     serviceAccountId: vmParams.serviceAccountId,
   });
 
-  core.debug(`CreateInstanceRequest: ${JSON.stringify(CreateInstanceRequest.toJSON(request))}`);
+  core.debug(`CreateInstanceRequest:\n${yaml.dump(CreateInstanceRequest.toJSON(request))}`);
 
   let op = await instanceService.create(request);
   op = await completion(op, session);
@@ -159,7 +160,7 @@ async function createVm(
   if (v !== undefined) {
     const instance = Instance.decode(v);
 
-    core.debug(`Got instance: ${JSON.stringify(Instance.toJSON(instance))}`);
+    core.debug(`Got instance:\n${yaml.dump(Instance.toJSON(instance))}`);
   }
 
   handleOperationError(op);
@@ -182,12 +183,12 @@ async function updateMetadata(
     },
   });
 
-  core.debug(`UpdateInstanceMetadataRequest: ${JSON.stringify(UpdateInstanceMetadataRequest.toJSON(request))}`);
+  core.debug(`UpdateInstanceMetadataRequest:\n${yaml.dump(UpdateInstanceMetadataRequest.toJSON(request))}`);
 
   let op = await instanceService.updateMetadata(request);
   op = await completion(op, session);
 
-  core.debug(`Operation completed: ${JSON.stringify(Operation.toJSON(op))}`);
+  core.debug(`Operation completed:\n${yaml.dump(Operation.toJSON(op))}`);
 
   handleOperationError(op);
   core.endGroup();
