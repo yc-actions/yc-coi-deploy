@@ -100,6 +100,7 @@ function prepareConfig(filePath) {
     return mustache_1.default.render(content, { env: Object.assign({}, process.env) }, {}, { escape: x => x });
 }
 function createVm(session, instanceService, imageService, vmParams, repo) {
+    var _a;
     return __awaiter(this, void 0, void 0, function* () {
         const coiImageId = yield findCoiImageId(imageService);
         core.startGroup('Create new VM');
@@ -139,7 +140,11 @@ function createVm(session, instanceService, imageService, vmParams, repo) {
         core.debug(`CreateInstanceRequest: ${JSON.stringify(instance_service_1.CreateInstanceRequest.toJSON(request))}`);
         let op = yield instanceService.create(request);
         op = yield (0, operation_2.completion)(op, session);
-        core.debug(`Operation completed: ${JSON.stringify(operation_1.Operation.toJSON(op))}`);
+        const v = (_a = op.response) === null || _a === void 0 ? void 0 : _a.value;
+        if (v !== undefined) {
+            const instance = instance_1.Instance.decode(v);
+            core.debug(`Got instance: ${JSON.stringify(instance_1.Instance.toJSON(instance))}`);
+        }
         handleOperationError(op);
         core.endGroup();
     });
@@ -147,14 +152,17 @@ function createVm(session, instanceService, imageService, vmParams, repo) {
 function updateMetadata(session, instanceService, instanceId, vmParams) {
     return __awaiter(this, void 0, void 0, function* () {
         core.startGroup('Update metadata');
-        let op = yield instanceService.updateMetadata(instance_service_1.UpdateInstanceMetadataRequest.fromPartial({
+        const request = instance_service_1.UpdateInstanceMetadataRequest.fromPartial({
             instanceId,
             upsert: {
                 'user-data': prepareConfig(vmParams.userDataPath),
                 'docker-compose': prepareConfig(vmParams.dockerComposePath),
             },
-        }));
+        });
+        core.debug(`UpdateInstanceMetadataRequest: ${JSON.stringify(instance_service_1.UpdateInstanceMetadataRequest.toJSON(request))}`);
+        let op = yield instanceService.updateMetadata(request);
         op = yield (0, operation_2.completion)(op, session);
+        core.debug(`Operation completed: ${JSON.stringify(operation_1.Operation.toJSON(op))}`);
         handleOperationError(op);
         core.endGroup();
         return op;

@@ -7,7 +7,7 @@ import {
   GetImageLatestByFamilyRequest,
   ImageServiceService,
 } from '@nikolay.matrosov/yc-ts-sdk/lib/generated/yandex/cloud/compute/v1/image_service';
-import {IpVersion} from '@nikolay.matrosov/yc-ts-sdk/lib/generated/yandex/cloud/compute/v1/instance';
+import {IpVersion, Instance} from '@nikolay.matrosov/yc-ts-sdk/lib/generated/yandex/cloud/compute/v1/instance';
 import {
   AttachedDiskSpec_Mode,
   CreateInstanceRequest,
@@ -155,7 +155,12 @@ async function createVm(
   let op = await instanceService.create(request);
   op = await completion(op, session);
 
-  core.debug(`Operation completed: ${JSON.stringify(Operation.toJSON(op))}`);
+  const v = op.response?.value;
+  if (v !== undefined) {
+    const instance = Instance.decode(v);
+
+    core.debug(`Got instance: ${JSON.stringify(Instance.toJSON(instance))}`);
+  }
 
   handleOperationError(op);
   core.endGroup();
@@ -169,16 +174,21 @@ async function updateMetadata(
 ): Promise<Operation> {
   core.startGroup('Update metadata');
 
-  let op = await instanceService.updateMetadata(
-    UpdateInstanceMetadataRequest.fromPartial({
-      instanceId,
-      upsert: {
-        'user-data': prepareConfig(vmParams.userDataPath),
-        'docker-compose': prepareConfig(vmParams.dockerComposePath),
-      },
-    }),
-  );
+  const request = UpdateInstanceMetadataRequest.fromPartial({
+    instanceId,
+    upsert: {
+      'user-data': prepareConfig(vmParams.userDataPath),
+      'docker-compose': prepareConfig(vmParams.dockerComposePath),
+    },
+  });
+
+  core.debug(`UpdateInstanceMetadataRequest: ${JSON.stringify(UpdateInstanceMetadataRequest.toJSON(request))}`);
+
+  let op = await instanceService.updateMetadata(request);
   op = await completion(op, session);
+
+  core.debug(`Operation completed: ${JSON.stringify(Operation.toJSON(op))}`);
+
   handleOperationError(op);
   core.endGroup();
   return op;
