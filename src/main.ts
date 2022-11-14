@@ -261,8 +261,10 @@ async function run(): Promise<void> {
 
     const vmId = await findVm(instanceService, vmInputs.folderId, vmInputs.name);
     if (vmId === null) {
+      core.debug(`No VM found - creating`);
       await createVm(session, instanceService, imageService, vmInputs, github.context.repo);
     } else {
+      core.debug(`VM found - updating metadata`);
       await updateMetadata(session, instanceService, vmId, vmInputs);
     }
   } catch (error) {
