@@ -64,6 +64,8 @@ outputs:
     description: 'Boot disk ID that was created for the instance'
   public_ip:
     description: 'Public IP address that was assigned to the instance'
+  created:
+    description: 'A flag that indicates whether instance was created or updated'
 branding:
   color: blue
   icon: upload-cloud

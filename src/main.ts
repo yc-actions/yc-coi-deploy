@@ -134,6 +134,8 @@ async function createVm(
 
   core.startGroup('Create new VM');
 
+  core.setOutput('created', true);
+
   let op = await instanceService.create(
     CreateInstanceRequest.fromPartial({
       folderId: vmParams.folderId,
@@ -184,6 +186,8 @@ async function updateMetadata(
   vmParams: VmParams,
 ): Promise<Operation> {
   core.startGroup('Update metadata');
+
+  core.setOutput('created', false);
 
   let op = await instanceService.updateMetadata(
     UpdateInstanceMetadataRequest.fromPartial({
