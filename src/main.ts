@@ -86,6 +86,7 @@ interface VmParams {
   userDataPath: string;
   dockerComposePath: string;
   subnetId: string;
+  ipAddress: string;
   serviceAccountId: string;
   serviceAccountName: string | undefined;
   diskType: string;
@@ -143,6 +144,7 @@ async function createVm(
           subnetId: vmParams.subnetId,
           primaryV4AddressSpec: {
             oneToOneNatSpec: {
+              address: vmParams.ipAddress,
               ipVersion: IpVersion.IPV4,
             },
           },
@@ -197,6 +199,7 @@ function parseVmInputs(): VmParams {
 
   const zoneId: string = core.getInput('vm-zone-id') || 'ru-central1-a';
   const subnetId: string = core.getInput('vm-subnet-id', {required: true});
+  const ipAddress: string = core.getInput('vm-public-ip');
   const platformId: string = core.getInput('vm-platform-id') || 'standard-v3';
   const cores: number = parseInt(core.getInput('vm-cores') || '2', 10);
   const memory: number = parseMemory(core.getInput('vm-memory') || '1Gb');
@@ -209,6 +212,7 @@ function parseVmInputs(): VmParams {
     diskType,
     diskSize,
     subnetId,
+    ipAddress,
     zoneId,
     platformId,
     folderId,

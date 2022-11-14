@@ -44,6 +44,9 @@ inputs:
   vm-subnet-id:
     required: true
     description: 'The subnet ID where the VM will be created'
+  vm-public-ip:
+    required: false
+    description: 'Public IP address'
   vm-platform-id:
     required: false
     description: 'Compute platform Id'
