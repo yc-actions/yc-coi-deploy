@@ -51,7 +51,8 @@ const image_service_1 = __nccwpck_require__(9476);
 const instance_1 = __nccwpck_require__(825);
 const instance_service_1 = __nccwpck_require__(9893);
 const service_account_service_1 = __nccwpck_require__(6809);
-const operation_1 = __nccwpck_require__(1359);
+const operation_1 = __nccwpck_require__(7745);
+const operation_2 = __nccwpck_require__(1359);
 const iamTokenService_1 = __nccwpck_require__(9489);
 const fs = __importStar(__nccwpck_require__(7147));
 const mustache_1 = __importDefault(__nccwpck_require__(8272));
@@ -135,10 +136,10 @@ function createVm(session, instanceService, imageService, vmParams, repo) {
             ],
             serviceAccountId: vmParams.serviceAccountId,
         });
-        core.debug(`CreateInstanceRequest: ${instance_service_1.CreateInstanceRequest.toJSON(request)}`);
+        core.debug(`CreateInstanceRequest: ${JSON.stringify(instance_service_1.CreateInstanceRequest.toJSON(request))}`);
         let op = yield instanceService.create(request);
-        op = yield (0, operation_1.completion)(op, session);
-        core.debug(`Operation completed: ${JSON.stringify(op)}`);
+        op = yield (0, operation_2.completion)(op, session);
+        core.debug(`Operation completed: ${JSON.stringify(operation_1.Operation.toJSON(op))}`);
         handleOperationError(op);
         core.endGroup();
     });
@@ -153,7 +154,7 @@ function updateMetadata(session, instanceService, instanceId, vmParams) {
                 'docker-compose': prepareConfig(vmParams.dockerComposePath),
             },
         }));
-        op = yield (0, operation_1.completion)(op, session);
+        op = yield (0, operation_2.completion)(op, session);
         handleOperationError(op);
         core.endGroup();
         return op;
