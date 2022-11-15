@@ -7,7 +7,7 @@ import {
   GetImageLatestByFamilyRequest,
   ImageServiceService,
 } from '@nikolay.matrosov/yc-ts-sdk/lib/generated/yandex/cloud/compute/v1/image_service';
-import {IpVersion} from '@nikolay.matrosov/yc-ts-sdk/lib/generated/yandex/cloud/compute/v1/instance';
+import {IpVersion, Instance} from '@nikolay.matrosov/yc-ts-sdk/lib/generated/yandex/cloud/compute/v1/instance';
 import {
   AttachedDiskSpec_Mode,
   CreateInstanceRequest,
@@ -86,6 +86,7 @@ interface VmParams {
   userDataPath: string;
   dockerComposePath: string;
   subnetId: string;
+  ipAddress: string;
   serviceAccountId: string;
   serviceAccountName: string | undefined;
   diskType: string;
@@ -104,6 +105,24 @@ function prepareConfig(filePath: string): string {
   return Mustache.render(content, {env: {...process.env}}, {}, {escape: x => x});
 }
 
+function getInstanceFromOperation(op: Operation): Instance | undefined {
+  const v = op.response?.value;
+  if (v !== undefined) {
+    return Instance.decode(v);
+  }
+}
+
+function setOutputs(op: Operation): void {
+  const instance = getInstanceFromOperation(op);
+
+  core.setOutput('instance-id', instance?.id);
+  core.setOutput('disk-id', instance?.bootDisk?.diskId);
+
+  if (instance?.networkInterfaces && instance?.networkInterfaces.length > 0) {
+    core.setOutput('public-ip', instance?.networkInterfaces[0].primaryV4Address?.oneToOneNat?.address);
+  }
+}
+
 async function createVm(
   session: Session,
   instanceService: Client<typeof InstanceServiceService, {}>,
@@ -114,6 +133,8 @@ async function createVm(
   const coiImageId = await findCoiImageId(imageService);
 
   core.startGroup('Create new VM');
+
+  core.setOutput('created', 'true');
 
   let op = await instanceService.create(
     CreateInstanceRequest.fromPartial({
@@ -143,6 +164,7 @@ async function createVm(
           subnetId: vmParams.subnetId,
           primaryV4AddressSpec: {
             oneToOneNatSpec: {
+              address: vmParams.ipAddress,
               ipVersion: IpVersion.IPV4,
             },
           },
@@ -153,6 +175,7 @@ async function createVm(
   );
   op = await completion(op, session);
   handleOperationError(op);
+  setOutputs(op);
   core.endGroup();
 }
 
@@ -163,6 +186,8 @@ async function updateMetadata(
   vmParams: VmParams,
 ): Promise<Operation> {
   core.startGroup('Update metadata');
+
+  core.setOutput('created', 'false');
 
   let op = await instanceService.updateMetadata(
     UpdateInstanceMetadataRequest.fromPartial({
@@ -175,6 +200,7 @@ async function updateMetadata(
   );
   op = await completion(op, session);
   handleOperationError(op);
+  setOutputs(op);
   core.endGroup();
   return op;
 }
@@ -197,6 +223,7 @@ function parseVmInputs(): VmParams {
 
   const zoneId: string = core.getInput('vm-zone-id') || 'ru-central1-a';
   const subnetId: string = core.getInput('vm-subnet-id', {required: true});
+  const ipAddress: string = core.getInput('vm-public-ip');
   const platformId: string = core.getInput('vm-platform-id') || 'standard-v3';
   const cores: number = parseInt(core.getInput('vm-cores') || '2', 10);
   const memory: number = parseMemory(core.getInput('vm-memory') || '1Gb');
@@ -209,6 +236,7 @@ function parseVmInputs(): VmParams {
     diskType,
     diskSize,
     subnetId,
+    ipAddress,
     zoneId,
     platformId,
     folderId,

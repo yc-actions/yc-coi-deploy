@@ -98,10 +98,27 @@ function prepareConfig(filePath) {
     const content = fs.readFileSync(path.join(workspace, filePath)).toString();
     return mustache_1.default.render(content, { env: Object.assign({}, process.env) }, {}, { escape: x => x });
 }
+function getInstanceFromOperation(op) {
+    var _a;
+    const v = (_a = op.response) === null || _a === void 0 ? void 0 : _a.value;
+    if (v !== undefined) {
+        return instance_1.Instance.decode(v);
+    }
+}
+function setOutputs(op) {
+    var _a, _b, _c;
+    const instance = getInstanceFromOperation(op);
+    core.setOutput('instance-id', instance === null || instance === void 0 ? void 0 : instance.id);
+    core.setOutput('disk-id', (_a = instance === null || instance === void 0 ? void 0 : instance.bootDisk) === null || _a === void 0 ? void 0 : _a.diskId);
+    if ((instance === null || instance === void 0 ? void 0 : instance.networkInterfaces) && (instance === null || instance === void 0 ? void 0 : instance.networkInterfaces.length) > 0) {
+        core.setOutput('public-ip', (_c = (_b = instance === null || instance === void 0 ? void 0 : instance.networkInterfaces[0].primaryV4Address) === null || _b === void 0 ? void 0 : _b.oneToOneNat) === null || _c === void 0 ? void 0 : _c.address);
+    }
+}
 function createVm(session, instanceService, imageService, vmParams, repo) {
     return __awaiter(this, void 0, void 0, function* () {
         const coiImageId = yield findCoiImageId(imageService);
         core.startGroup('Create new VM');
+        core.setOutput('created', 'true');
         let op = yield instanceService.create(instance_service_1.CreateInstanceRequest.fromPartial({
             folderId: vmParams.folderId,
             name: vmParams.name,
@@ -128,6 +145,7 @@ function createVm(session, instanceService, imageService, vmParams, repo) {
                     subnetId: vmParams.subnetId,
                     primaryV4AddressSpec: {
                         oneToOneNatSpec: {
+                            address: vmParams.ipAddress,
                             ipVersion: instance_1.IpVersion.IPV4,
                         },
                     },
@@ -137,12 +155,14 @@ function createVm(session, instanceService, imageService, vmParams, repo) {
         }));
         op = yield (0, operation_1.completion)(op, session);
         handleOperationError(op);
+        setOutputs(op);
         core.endGroup();
     });
 }
 function updateMetadata(session, instanceService, instanceId, vmParams) {
     return __awaiter(this, void 0, void 0, function* () {
         core.startGroup('Update metadata');
+        core.setOutput('created', 'false');
         let op = yield instanceService.updateMetadata(instance_service_1.UpdateInstanceMetadataRequest.fromPartial({
             instanceId,
             upsert: {
@@ -152,6 +172,7 @@ function updateMetadata(session, instanceService, instanceId, vmParams) {
         }));
         op = yield (0, operation_1.completion)(op, session);
         handleOperationError(op);
+        setOutputs(op);
         core.endGroup();
         return op;
     });
@@ -171,6 +192,7 @@ function parseVmInputs() {
     }
     const zoneId = core.getInput('vm-zone-id') || 'ru-central1-a';
     const subnetId = core.getInput('vm-subnet-id', { required: true });
+    const ipAddress = core.getInput('vm-public-ip');
     const platformId = core.getInput('vm-platform-id') || 'standard-v3';
     const cores = parseInt(core.getInput('vm-cores') || '2', 10);
     const memory = (0, memory_1.parseMemory)(core.getInput('vm-memory') || '1Gb');
@@ -182,6 +204,7 @@ function parseVmInputs() {
         diskType,
         diskSize,
         subnetId,
+        ipAddress,
         zoneId,
         platformId,
         folderId,

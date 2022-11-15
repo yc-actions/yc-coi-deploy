@@ -44,6 +44,9 @@ inputs:
   vm-subnet-id:
     required: true
     description: 'The subnet ID where the VM will be created'
+  vm-public-ip:
+    required: false
+    description: 'Public IP address'
   vm-platform-id:
     required: false
     description: 'Compute platform Id'
@@ -54,6 +57,15 @@ inputs:
   docker-compose-path:
     required: true
     description: 'Path to the `docker-compose.yaml` file inside repo.'
+outputs:
+  instance-id:
+    description: 'Instance ID'
+  disk-id:
+    description: 'Boot disk ID that was created for the instance'
+  public-ip:
+    description: 'Public IP address that was assigned to the instance'
+  created:
+    description: 'A flag that indicates whether instance was created or updated'
 branding:
   color: blue
   icon: upload-cloud
