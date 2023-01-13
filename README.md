@@ -33,7 +33,7 @@ using the provided image name and tag.
 
     - name: Deploy COI VM
       id: deploy-coi
-      uses: yc-actions/yc-coi-deploy@v1
+      uses: yc-actions/yc-coi-deploy@v2
       env:
         CR_REGISTRY: crp00000000000000000
         CR_REPOSITORY: my-cr-repo
@@ -41,10 +41,10 @@ using the provided image name and tag.
       with:
         yc-sa-json-credentials: ${{ secrets.YC_SA_JSON_CREDENTIALS }}
         folder-id: bbajn5q2d74c********
-        VM-name: yc-action-demo
+        vm-name: yc-action-demo
         vm-service-account-id: ajeqnasj95o7********
-        vm-cores: 1
-        vm-memory: 512Mb
+        vm-cores: 2
+        vm-memory: 2Gb
         vm-core-fraction: 100
         vm-subnet-id: e9b*********
         user-data-path: './user-data.yaml'
