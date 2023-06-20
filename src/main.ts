@@ -1,34 +1,39 @@
 import * as core from '@actions/core';
 import * as github from '@actions/github';
-import {Session} from '@nikolay.matrosov/yc-ts-sdk';
-import {ImageService, InstanceService} from '@nikolay.matrosov/yc-ts-sdk/lib/api/compute/v1';
-import {ServiceAccountService} from '@nikolay.matrosov/yc-ts-sdk/lib/api/iam/v1';
+import {
+  decodeMessage,
+  serviceClients,
+  Session,
+  waitForOperation,
+  WrappedServiceClientType,
+} from '@yandex-cloud/nodejs-sdk';
 import {
   GetImageLatestByFamilyRequest,
   ImageServiceService,
-} from '@nikolay.matrosov/yc-ts-sdk/lib/generated/yandex/cloud/compute/v1/image_service';
-import {IpVersion, Instance} from '@nikolay.matrosov/yc-ts-sdk/lib/generated/yandex/cloud/compute/v1/instance';
+} from '@yandex-cloud/nodejs-sdk/dist/generated/yandex/cloud/compute/v1/image_service';
+import {Instance, IpVersion} from '@yandex-cloud/nodejs-sdk/dist/generated/yandex/cloud/compute/v1/instance';
 import {
   AttachedDiskSpec_Mode,
   CreateInstanceRequest,
+  GetInstanceRequest,
   InstanceServiceService,
+  InstanceView,
   ListInstancesRequest,
   UpdateInstanceMetadataRequest,
-} from '@nikolay.matrosov/yc-ts-sdk/lib/generated/yandex/cloud/compute/v1/instance_service';
+} from '@yandex-cloud/nodejs-sdk/dist/generated/yandex/cloud/compute/v1/instance_service';
 import {
   ListServiceAccountsRequest,
   ServiceAccountServiceService,
-} from '@nikolay.matrosov/yc-ts-sdk/lib/generated/yandex/cloud/iam/v1/service_account_service';
-import {Operation} from '@nikolay.matrosov/yc-ts-sdk/lib/generated/yandex/cloud/operation/operation';
-import {completion} from '@nikolay.matrosov/yc-ts-sdk/lib/src/operation';
-import {fromServiceAccountJsonFile} from '@nikolay.matrosov/yc-ts-sdk/lib/src/TokenService/iamTokenService';
+} from '@yandex-cloud/nodejs-sdk/dist/generated/yandex/cloud/iam/v1/service_account_service';
+import {Operation} from '@yandex-cloud/nodejs-sdk/dist/generated/yandex/cloud/operation/operation';
 import * as fs from 'fs';
 import Mustache from 'mustache';
-import {Client} from 'nice-grpc';
 import * as path from 'path';
+import {DOCKER_COMPOSE_KEY, DOCKER_CONTAINER_DECLARATION_KEY} from './const';
 import {parseMemory} from './memory';
+import {fromServiceAccountJsonFile} from './service-account-json';
 
-async function findCoiImageId(imageService: Client<typeof ImageServiceService, {}>): Promise<string> {
+async function findCoiImageId(imageService: WrappedServiceClientType<typeof ImageServiceService>): Promise<string> {
   core.startGroup('Find COI image id');
 
   const res = await imageService.getLatestByFamily(
@@ -43,7 +48,7 @@ async function findCoiImageId(imageService: Client<typeof ImageServiceService, {
 }
 
 async function resolveServiceAccountId(
-  saService: Client<typeof ServiceAccountServiceService, {}>,
+  saService: WrappedServiceClientType<typeof ServiceAccountServiceService>,
   folderId: string,
   name: string,
 ): Promise<string | null> {
@@ -58,7 +63,7 @@ async function resolveServiceAccountId(
 }
 
 async function findVm(
-  instanceService: Client<typeof InstanceServiceService, {}>,
+  instanceService: WrappedServiceClientType<typeof InstanceServiceService>,
   folderId: string,
   name: string,
 ): Promise<string | null> {
@@ -125,8 +130,8 @@ function setOutputs(op: Operation): void {
 
 async function createVm(
   session: Session,
-  instanceService: Client<typeof InstanceServiceService, {}>,
-  imageService: Client<typeof ImageServiceService, {}>,
+  instanceService: WrappedServiceClientType<typeof InstanceServiceService>,
+  imageService: WrappedServiceClientType<typeof ImageServiceService>,
   vmParams: VmParams,
   repo: {owner: string; repo: string},
 ): Promise<void> {
@@ -136,7 +141,7 @@ async function createVm(
 
   core.setOutput('created', 'true');
 
-  let op = await instanceService.create(
+  const op = await instanceService.create(
     CreateInstanceRequest.fromPartial({
       folderId: vmParams.folderId,
       name: vmParams.name,
@@ -173,15 +178,21 @@ async function createVm(
       serviceAccountId: vmParams.serviceAccountId,
     }),
   );
-  op = await completion(op, session);
-  handleOperationError(op);
-  setOutputs(op);
+  const finishedOp = await waitForOperation(op, session);
+  if (finishedOp.response) {
+    const instanceId = decodeMessage<Instance>(finishedOp.response).id;
+    core.info(`Created instance with id '${instanceId}'`);
+  } else {
+    core.error(`Failed to create instance'`);
+    throw new Error('Failed to create instance');
+  }
+  setOutputs(finishedOp);
   core.endGroup();
 }
 
 async function updateMetadata(
   session: Session,
-  instanceService: Client<typeof InstanceServiceService, {}>,
+  instanceService: WrappedServiceClientType<typeof InstanceServiceService>,
   instanceId: string,
   vmParams: VmParams,
 ): Promise<Operation> {
@@ -189,7 +200,7 @@ async function updateMetadata(
 
   core.setOutput('created', 'false');
 
-  let op = await instanceService.updateMetadata(
+  const op = await instanceService.updateMetadata(
     UpdateInstanceMetadataRequest.fromPartial({
       instanceId,
       upsert: {
@@ -198,8 +209,13 @@ async function updateMetadata(
       },
     }),
   );
-  op = await completion(op, session);
-  handleOperationError(op);
+  const finishedOp = await waitForOperation(op, session);
+  if (finishedOp.response) {
+    core.info(`Updated instance with id '${instanceId}'`);
+  } else {
+    core.error(`Failed to create instance'`);
+    throw new Error('Failed to create instance');
+  }
   setOutputs(op);
   core.endGroup();
   return op;
@@ -253,6 +269,30 @@ function parseVmInputs(): VmParams {
   };
 }
 
+async function detectMetadataConflict(
+  session: Session,
+  instanceService: WrappedServiceClientType<typeof InstanceServiceService>,
+  instanceId: string,
+): Promise<boolean> {
+  core.startGroup('Check metadata');
+  const instance = await instanceService.get(
+    GetInstanceRequest.fromPartial({
+      instanceId,
+      view: InstanceView.FULL,
+    }),
+  );
+  if (DOCKER_CONTAINER_DECLARATION_KEY in instance.metadata) {
+    throw Error(
+      `Provided VM was created with '${DOCKER_CONTAINER_DECLARATION_KEY}' metadata key.
+It will conflict with '${DOCKER_COMPOSE_KEY}' key this action using.
+Either recreate VM using docker-compose as container definition
+or let the action create the new one by dropping 'name' parameter.`,
+    );
+  }
+  core.endGroup();
+  return true;
+}
+
 async function run(): Promise<void> {
   try {
     core.info(`start`);
@@ -268,12 +308,14 @@ async function run(): Promise<void> {
     core.info('Parsed Service account JSON');
 
     const session = new Session({serviceAccountJson});
-    const imageService = ImageService(session);
-    const instanceService = InstanceService(session);
-    const serviceAccountService = ServiceAccountService(session);
+    const imageService = session.client<typeof ImageServiceService>(serviceClients.ComputeImageServiceClient);
+    const instanceService = session.client<typeof InstanceServiceService>(serviceClients.InstanceServiceClient);
+    const serviceAccountService = session.client<typeof ServiceAccountServiceService>(
+      serviceClients.ServiceAccountServiceClient,
+    );
 
-    if (!vmInputs.serviceAccountId && vmInputs.serviceAccountName !== undefined) {
-      const {folderId, serviceAccountName} = vmInputs;
+    const {folderId, serviceAccountName} = vmInputs;
+    if (!vmInputs.serviceAccountId && serviceAccountName !== undefined) {
       const id = await resolveServiceAccountId(serviceAccountService, folderId, serviceAccountName);
       if (!id) {
         core.setFailed(`There is no service account '${serviceAccountName}' in folder ${folderId}`);
@@ -282,25 +324,15 @@ async function run(): Promise<void> {
       vmInputs.serviceAccountId = id;
     }
 
-    const vmId = await findVm(instanceService, vmInputs.folderId, vmInputs.name);
+    const vmId = await findVm(instanceService, folderId, vmInputs.name);
     if (vmId === null) {
       await createVm(session, instanceService, imageService, vmInputs, github.context.repo);
     } else {
+      await detectMetadataConflict(session, instanceService, vmId);
       await updateMetadata(session, instanceService, vmId, vmInputs);
     }
   } catch (error) {
     core.setFailed(error as Error);
-  }
-}
-
-function handleOperationError(operation: Operation): void {
-  if (operation.error) {
-    const details = operation.error?.details;
-    if (details) {
-      throw Error(`${operation.error.code}: ${operation.error.message} (${details.join(', ')})`);
-    }
-
-    throw Error(`${operation.error.code}: ${operation.error.message}`);
   }
 }
 
