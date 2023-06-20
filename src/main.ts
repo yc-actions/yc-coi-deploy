@@ -15,7 +15,9 @@ import {Instance, IpVersion} from '@yandex-cloud/nodejs-sdk/dist/generated/yande
 import {
   AttachedDiskSpec_Mode,
   CreateInstanceRequest,
+  GetInstanceRequest,
   InstanceServiceService,
+  InstanceView,
   ListInstancesRequest,
   UpdateInstanceMetadataRequest,
 } from '@yandex-cloud/nodejs-sdk/dist/generated/yandex/cloud/compute/v1/instance_service';
@@ -27,6 +29,7 @@ import {Operation} from '@yandex-cloud/nodejs-sdk/dist/generated/yandex/cloud/op
 import * as fs from 'fs';
 import Mustache from 'mustache';
 import * as path from 'path';
+import {DOCKER_COMPOSE_KEY, DOCKER_CONTAINER_DECLARATION_KEY} from './const';
 import {parseMemory} from './memory';
 import {fromServiceAccountJsonFile} from './service-account-json';
 
@@ -266,6 +269,30 @@ function parseVmInputs(): VmParams {
   };
 }
 
+async function detectMetadataConflict(
+  session: Session,
+  instanceService: WrappedServiceClientType<typeof InstanceServiceService>,
+  instanceId: string,
+): Promise<boolean> {
+  core.startGroup('Check metadata');
+  const instance = await instanceService.get(
+    GetInstanceRequest.fromPartial({
+      instanceId,
+      view: InstanceView.FULL,
+    }),
+  );
+  if (DOCKER_CONTAINER_DECLARATION_KEY in instance.metadata) {
+    throw Error(
+      `Provided VM was created with '${DOCKER_CONTAINER_DECLARATION_KEY}' metadata key.
+It will conflict with '${DOCKER_COMPOSE_KEY}' key this action using.
+Either recreate VM using docker-compose as container definition
+or let the action create the new one by dropping 'name' parameter.`,
+    );
+  }
+  core.endGroup();
+  return true;
+}
+
 async function run(): Promise<void> {
   try {
     core.info(`start`);
@@ -281,12 +308,14 @@ async function run(): Promise<void> {
     core.info('Parsed Service account JSON');
 
     const session = new Session({serviceAccountJson});
-    const imageService = session.client(serviceClients.ComputeImageServiceClient);
-    const instanceService = session.client(serviceClients.InstanceServiceClient);
-    const serviceAccountService = session.client(serviceClients.ServiceAccountServiceClient);
+    const imageService = session.client<typeof ImageServiceService>(serviceClients.ComputeImageServiceClient);
+    const instanceService = session.client<typeof InstanceServiceService>(serviceClients.InstanceServiceClient);
+    const serviceAccountService = session.client<typeof ServiceAccountServiceService>(
+      serviceClients.ServiceAccountServiceClient,
+    );
 
-    if (!vmInputs.serviceAccountId && vmInputs.serviceAccountName !== undefined) {
-      const {folderId, serviceAccountName} = vmInputs;
+    const {folderId, serviceAccountName} = vmInputs;
+    if (!vmInputs.serviceAccountId && serviceAccountName !== undefined) {
       const id = await resolveServiceAccountId(serviceAccountService, folderId, serviceAccountName);
       if (!id) {
         core.setFailed(`There is no service account '${serviceAccountName}' in folder ${folderId}`);
@@ -295,10 +324,11 @@ async function run(): Promise<void> {
       vmInputs.serviceAccountId = id;
     }
 
-    const vmId = await findVm(instanceService, vmInputs.folderId, vmInputs.name);
+    const vmId = await findVm(instanceService, folderId, vmInputs.name);
     if (vmId === null) {
       await createVm(session, instanceService, imageService, vmInputs, github.context.repo);
     } else {
+      await detectMetadataConflict(session, instanceService, vmId);
       await updateMetadata(session, instanceService, vmId, vmInputs);
     }
   } catch (error) {

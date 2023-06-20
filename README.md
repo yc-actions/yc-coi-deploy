@@ -60,6 +60,25 @@ See [action.yml](action.yml) for the full documentation for this action's inputs
 
 To perform this action, it is required that the service account on behalf of which we are acting has granted the `compute.admin` role or greater.
 
+## Debug
+There are two ways to provide info about container to deploy to the `yc-container-daemon` installed inside COI image:
+1. Pass container declaration via `docker-container-declaration` metadata key.
+2. Pass docker-compose.yaml via `docker-compose` metadata key.
+
+But if both of these keys defined in the VM metadata deamon doesn't know what config it should use and fail with following exception:
+```json
+{
+  "level":"ERROR",
+  "ts":"2023-06-01T01:23:45.000Z",
+  "caller":"mdtracking/checker.go:135",
+  "msg": "OnChange callbak failed: both 'docker-compose' and 'docker-container-declaration' are found in metadata, only one should be specified"
+}
+```
+So the action detects the conflict and fails if there is `'docker-container-declaration'` in the metadata of the provided pre-created VM.
+
+To fix the issue you should either let the action to create new VM by removing `name` param or recreate VM using
+`'docker-compose'` method.
+
 ## License Summary
 
 This code is made available under the MIT license.
