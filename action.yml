@@ -70,5 +70,5 @@ branding:
   color: blue
   icon: upload-cloud
 runs:
-  using: 'node16'
+  using: 'node20'
   main: 'dist/index.js'
