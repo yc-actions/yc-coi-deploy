@@ -1,5 +1,7 @@
 ## GitHub Action to deploy your container into Yandex Cloud virtual machine created from Container Optimized Image.
 
+[![Coverage](./badges/coverage.svg)](./badges/coverage.svg)
+
 The action creates a VM with the provided name in the provided folder if there is no one. Then it deploys a container
 using the provided image name and tag.
 
