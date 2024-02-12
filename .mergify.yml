@@ -5,7 +5,7 @@ pull_request_rules:
       - base=main
       - author=dependabot[bot]
       - check-success=check-dist
-      - check-success=build
+      - check-success=test
       - -title~=(WIP|wip)
       - -label~=(blocked|do-not-merge)
       - -merged
