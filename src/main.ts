@@ -2,6 +2,7 @@ import * as core from '@actions/core'
 import * as github from '@actions/github'
 import {
     decodeMessage,
+    errors,
     serviceClients,
     Session,
     waitForOperation,
@@ -343,6 +344,9 @@ export async function run(): Promise<void> {
             await updateMetadata(session, instanceService, vmId, vmInputs)
         }
     } catch (error) {
+        if (error instanceof errors.ApiError) {
+            core.error(`${error.message}\nx-request-id: ${error.requestId}\nx-server-trace-id: ${error.serverTraceId}`)
+        }
         core.setFailed(error as Error)
     }
 }
