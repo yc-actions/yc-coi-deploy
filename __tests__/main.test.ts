@@ -60,7 +60,8 @@ const defaultInputs: Record<string, string> = {
     'vm-core-fraction': '100',
     'vm-disk-type': 'network-ssd',
     'vm-disk-size': '30GB',
-    'vm-platform-id': 'standard-v3'
+    'vm-platform-id': 'standard-v3',
+    'metadata-enable-oslogin': 'false'
 }
 describe('action', () => {
     beforeEach(() => {
@@ -102,6 +103,7 @@ describe('action', () => {
             Instance.fromJSON({
                 id: 'instanceid',
                 metadata: {
+                    'enable-oslogin': 'false',
                     'user-data': 'userdata',
                     'docker-compose': 'dockercompose'
                 }
@@ -287,6 +289,7 @@ describe('action', () => {
             Instance.fromJSON({
                 id: 'instanceid',
                 metadata: {
+                    'enable-oslogin': 'false',
                     'user-data': 'userdata',
                     'docker-compose': 'dockercompose'
                 }

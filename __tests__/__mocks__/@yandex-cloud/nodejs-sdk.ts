@@ -56,6 +56,7 @@ const InstanceServiceMock = {
         const data = {
             id: 'instanceid',
             metadata: {
+                'enable-oslogin': 'false',
                 'user-data': 'userdata',
                 'docker-compose': 'dockercompose'
             },
