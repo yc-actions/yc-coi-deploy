@@ -57,6 +57,10 @@ inputs:
   docker-compose-path:
     required: true
     description: 'Path to the `docker-compose.yaml` file inside repo.'
+  metadata-enable-oslogin:
+    required: false
+    description: 'Variable to enable-oslogin if needed.'
+    default: 'false'
 outputs:
   instance-id:
     description: 'Instance ID'

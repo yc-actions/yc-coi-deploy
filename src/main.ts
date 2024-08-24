@@ -102,6 +102,7 @@ interface VmParams {
     zoneId: string
     platformId: string
     resourcesSpec: ResourcesSpec
+    metadataEnableOslogin: string
 }
 
 function prepareConfig(filePath: string): string {
@@ -158,6 +159,7 @@ async function createVm(
             platformId: vmParams.platformId,
             resourcesSpec: vmParams.resourcesSpec,
             metadata: {
+                'enable-oslogin': vmParams.metadataEnableOslogin,
                 'user-data': prepareConfig(vmParams.userDataPath),
                 'docker-compose': prepareConfig(vmParams.dockerComposePath)
             },
@@ -212,6 +214,7 @@ async function updateMetadata(
         UpdateInstanceMetadataRequest.fromPartial({
             instanceId,
             upsert: {
+                'enable-oslogin': vmParams.metadataEnableOslogin,
                 'user-data': prepareConfig(vmParams.userDataPath),
                 'docker-compose': prepareConfig(vmParams.dockerComposePath)
             }
@@ -258,6 +261,7 @@ function parseVmInputs(): VmParams {
     const diskType: string = core.getInput('vm-disk-type') || 'network-ssd'
     const diskSize: number = parseMemory(core.getInput('vm-disk-size') || '30Gb')
     const coreFraction: number = parseInt(core.getInput('vm-core-fraction') || '100', 10)
+    const metadataEnableOslogin: string = core.getInput('metadata-enable-oslogin') || 'false'
 
     core.endGroup()
     return {
@@ -277,7 +281,8 @@ function parseVmInputs(): VmParams {
             cores,
             memory,
             coreFraction
-        }
+        },
+        metadataEnableOslogin
     }
 }
 
