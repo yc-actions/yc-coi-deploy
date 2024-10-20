@@ -60,9 +60,19 @@ See [action.yml](action.yml) for the full documentation for this action's inputs
 
 ## Permissions
 
-To perform this action, it is required that the service account on behalf of which we are acting has granted the `compute.admin` role or greater.
+### Deploy time permissions
+To perform this action, the service account on behalf of which we are acting must have
+the `compute.admin` role or higher.
+
+### Runtime permissions
+
+The service account provided to virtual machine must have the `container-registry.images.puller` role or higher, if images
+provided in the `docker-compose` metadata key are stored in the Yandex.Cloud Container Registry and are private.
+
 
 ## Debug
+
+### Conflict between `docker-compose` and `docker-container-declaration` metadata keys
 There are two ways to provide info about container to deploy to the `yc-container-daemon` installed inside COI image:
 1. Pass container declaration via `docker-container-declaration` metadata key.
 2. Pass docker-compose.yaml via `docker-compose` metadata key.
@@ -73,13 +83,22 @@ But if both of these keys defined in the VM metadata deamon doesn't know what co
   "level":"ERROR",
   "ts":"2023-06-01T01:23:45.000Z",
   "caller":"mdtracking/checker.go:135",
-  "msg": "OnChange callbak failed: both 'docker-compose' and 'docker-container-declaration' are found in metadata, only one should be specified"
+  "msg": "OnChange callback failed: both 'docker-compose' and 'docker-container-declaration' are found in metadata, only one should be specified"
 }
 ```
 So the action detects the conflict and fails if there is `'docker-container-declaration'` in the metadata of the provided pre-created VM.
 
 To fix the issue you should either let the action to create new VM by removing `name` param or recreate VM using
 `'docker-compose'` method.
+
+### Network configuration
+
+If the VM does not have a [public IP address](https://yandex.cloud/en/docs/compute/operations/vm-control/vm-attach-public-ip)
+that allows data exchange over the Internet, it won't be able to access the Yandex.Cloud Container Registry to pull the image.
+
+In this case, there are several ways to give the virtual machine access to the registry without assigning an address:
+- Use a [NAT gateway](https://yandex.cloud/en/docs/vpc/concepts/gateways).
+- Set up traffic routing to the Internet using a [NAT instance](https://yandex.cloud/en/docs/vpc/tutorials/nat-instance/).
 
 ## License Summary
 
