@@ -1,4 +1,4 @@
-import { startGroup, info, endGroup, setOutput, error, getInput, setFailed } from '@actions/core'
+import { startGroup, info, endGroup, setOutput, error, getInput, setFailed, getIDToken } from '@actions/core'
 import { context } from '@actions/github'
 import {
     decodeMessage,
@@ -33,6 +33,8 @@ import { join } from 'path'
 import { DOCKER_COMPOSE_KEY, DOCKER_CONTAINER_DECLARATION_KEY } from './const'
 import { parseMemory } from './memory'
 import { fromServiceAccountJsonFile } from './service-account-json'
+import { SessionConfig } from '@yandex-cloud/nodejs-sdk/dist/types'
+import axios from 'axios'
 
 async function findCoiImageId(imageService: WrappedServiceClientType<typeof ImageServiceService>): Promise<string> {
     startGroup('Find COI image id')
@@ -308,18 +310,30 @@ or let the action create the new one by dropping 'name' parameter.`
 export async function run(): Promise<void> {
     try {
         info(`start`)
-        const ycSaJsonCredentials = getInput('yc-sa-json-credentials', {
-            required: true
-        })
-
+        let sessionConfig: SessionConfig = {}
+        const ycSaJsonCredentials = getInput('yc-sa-json-credentials')
+        const ycIamToken = getInput('yc-iam-token')
+        const ycSaId = getInput('yc-sa-id')
+        if (ycSaJsonCredentials !== '') {
+            const serviceAccountJson = fromServiceAccountJsonFile(JSON.parse(ycSaJsonCredentials))
+            info('Parsed Service account JSON')
+            sessionConfig = { serviceAccountJson }
+        } else if (ycIamToken !== '') {
+            sessionConfig = { iamToken: ycIamToken }
+            info('Using IAM token')
+        } else if (ycSaId !== '') {
+            const ghToken = await getIDToken()
+            if (!ghToken) {
+                throw new Error('No credentials provided')
+            }
+            const saToken = await exchangeToken(ghToken, ycSaId)
+            sessionConfig = { iamToken: saToken }
+        } else {
+            throw new Error('No credentials')
+        }
+        const session = new Session(sessionConfig)
         const vmInputs = parseVmInputs()
-
         info(`Folder ID: ${vmInputs.folderId}, name: ${vmInputs.name}`)
-
-        const serviceAccountJson = fromServiceAccountJsonFile(JSON.parse(ycSaJsonCredentials))
-        info('Parsed Service account JSON')
-
-        const session = new Session({ serviceAccountJson })
         const imageService = session.client<typeof ImageServiceService>(serviceClients.ComputeImageServiceClient)
         const instanceService = session.client<typeof InstanceServiceService>(serviceClients.InstanceServiceClient)
         const serviceAccountService = session.client<typeof ServiceAccountServiceService>(
@@ -349,4 +363,31 @@ export async function run(): Promise<void> {
         }
         setFailed(err as Error)
     }
+}
+
+async function exchangeToken(token: string, saId: string): Promise<string> {
+    info(`Exchanging token for service account ${saId}`)
+    const res = await axios.post(
+        'https://auth.yandex.cloud/oauth/token',
+        {
+            grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
+            requested_token_type: 'urn:ietf:params:oauth:token-type:access_token',
+            audience: saId,
+            subject_token: token,
+            subject_token_type: 'urn:ietf:params:oauth:token-type:id_token'
+        },
+        {
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+        }
+    )
+    if (res.status !== 200) {
+        throw new Error(`Failed to exchange token: ${res.status} ${res.statusText}`)
+    }
+    if (!res.data.access_token) {
+        throw new Error(`Failed to exchange token: ${res.data.error} ${res.data.error_description}`)
+    }
+    info(`Token exchanged successfully`)
+    return res.data.access_token
 }

@@ -10,6 +10,7 @@ import * as core from '@actions/core'
 import * as main from '../src/main'
 import * as sdk from '@yandex-cloud/nodejs-sdk'
 import * as github from '@actions/github'
+import axios from 'axios'
 import { Instance } from '@yandex-cloud/nodejs-sdk/dist/generated/yandex/cloud/compute/v1/instance'
 import { ServiceAccount } from '@yandex-cloud/nodejs-sdk/dist/generated/yandex/cloud/iam/v1/service_account'
 import { DOCKER_CONTAINER_DECLARATION_KEY } from '../src/const'
@@ -32,18 +33,12 @@ let errorMock: jest.SpyInstance
 let getInputMock: jest.SpyInstance
 let setFailedMock: jest.SpyInstance
 let setOutputMock: jest.SpyInstance
+let getIdTokenMock: jest.SpyInstance
+let axiosPostMock: jest.SpyInstance
 
 // yandex sdk mock
 
 const requiredInputs: Record<string, string> = {
-    'yc-sa-json-credentials': `{
-    "id": "id",
-    "created_at": "2021-01-01T00:00:00Z", 
-    "key_algorithm": "RSA_2048",
-    "service_account_id": "service_account_id",
-    "private_key": "private_key",
-    "public_key": "public_key"
-  }`,
     'folder-id': 'folderid',
     'vm-zone-id': 'ru-central1-a',
     'vm-subnet-id': 'subnetid',
@@ -51,7 +46,7 @@ const requiredInputs: Record<string, string> = {
     'docker-compose-path': '__tests__/docker-compose.yaml'
 }
 
-const defaultInputs: Record<string, string> = {
+const defaultValues: Record<string, string> = {
     ...requiredInputs,
     'vm-name': 'vmname',
     'vm-service-account-id': 'vm-service-account-id',
@@ -62,6 +57,23 @@ const defaultInputs: Record<string, string> = {
     'vm-disk-size': '30GB',
     'vm-platform-id': 'standard-v3'
 }
+
+const ycSaJsonCredentials: Record<string, string> = {
+    'yc-sa-json-credentials': `{
+    "id": "id",
+    "created_at": "2021-01-01T00:00:00Z", 
+    "key_algorithm": "RSA_2048",
+    "service_account_id": "service_account_id",
+    "private_key": "private_key",
+    "public_key": "public_key"
+  }`
+}
+
+const defaultInputs: Record<string, string> = {
+    ...defaultValues,
+    ...ycSaJsonCredentials
+}
+
 describe('action', () => {
     beforeEach(() => {
         jest.clearAllMocks()
@@ -70,6 +82,17 @@ describe('action', () => {
         getInputMock = jest.spyOn(core, 'getInput').mockImplementation()
         setFailedMock = jest.spyOn(core, 'setFailed').mockImplementation()
         setOutputMock = jest.spyOn(core, 'setOutput').mockImplementation()
+        getIdTokenMock = jest.spyOn(core, 'getIDToken').mockImplementation(async () => {
+            return 'github-token'
+        })
+        axiosPostMock = jest.spyOn(axios, 'post').mockImplementation(async () => {
+            return {
+                status: 200,
+                data: {
+                    access_token: 'iam-token'
+                }
+            }
+        })
         jest.spyOn(github.context, 'repo', 'get').mockImplementation(() => {
             return {
                 owner: 'some-owner',
@@ -90,6 +113,70 @@ describe('action', () => {
         getInputMock.mockImplementation((name: string): string => {
             const inputs = {
                 ...defaultInputs
+            }
+
+            return inputs[name] || ''
+        })
+
+        process.env.GITHUB_REPOSITORY = 'owner/repo'
+        process.env.GITHUB_SHA = 'sha'
+
+        sdk.__setComputeInstanceList([
+            Instance.fromJSON({
+                id: 'instanceid',
+                metadata: {
+                    'user-data': 'userdata',
+                    'docker-compose': 'dockercompose'
+                }
+            })
+        ])
+
+        await main.run()
+        expect(runMock).toHaveReturned()
+        expect(errorMock).not.toHaveBeenCalled()
+        expect(setFailedMock).not.toHaveBeenCalled()
+        expect(setOutputMock).toHaveBeenCalledWith('instance-id', 'instanceid')
+        expect(setOutputMock).toHaveBeenCalledWith('disk-id', 'diskid')
+    })
+
+    it('updates vm when there is one with IAM token', async () => {
+        // Set the action's inputs as return values from core.getInput()
+        getInputMock.mockImplementation((name: string): string => {
+            const inputs = {
+                ...defaultValues,
+                'yc-iam-token': 'iam-token'
+            }
+
+            return inputs[name] || ''
+        })
+
+        process.env.GITHUB_REPOSITORY = 'owner/repo'
+        process.env.GITHUB_SHA = 'sha'
+
+        sdk.__setComputeInstanceList([
+            Instance.fromJSON({
+                id: 'instanceid',
+                metadata: {
+                    'user-data': 'userdata',
+                    'docker-compose': 'dockercompose'
+                }
+            })
+        ])
+
+        await main.run()
+        expect(runMock).toHaveReturned()
+        expect(errorMock).not.toHaveBeenCalled()
+        expect(setFailedMock).not.toHaveBeenCalled()
+        expect(setOutputMock).toHaveBeenCalledWith('instance-id', 'instanceid')
+        expect(setOutputMock).toHaveBeenCalledWith('disk-id', 'diskid')
+    })
+
+    it('updates vm when there is one with GitHub token', async () => {
+        // Set the action's inputs as return values from core.getInput()
+        getInputMock.mockImplementation((name: string): string => {
+            const inputs = {
+                ...defaultValues,
+                'yc-sa-id': 'sa-id'
             }
 
             return inputs[name] || ''
@@ -203,6 +290,7 @@ describe('action', () => {
         getInputMock.mockImplementation((name: string): string => {
             const inputs: Record<string, string> = {
                 ...requiredInputs,
+                ...ycSaJsonCredentials,
                 'vm-service-account-id': 'vm-service-account-id'
             }
 
@@ -223,6 +311,7 @@ describe('action', () => {
         getInputMock.mockImplementation((name: string): string => {
             const inputs: Record<string, string> = {
                 ...requiredInputs,
+                ...ycSaJsonCredentials,
                 'vm-service-account-name': 'unknown'
             }
 
@@ -239,10 +328,11 @@ describe('action', () => {
         expect(setOutputMock).not.toHaveBeenCalledWith('disk-id', 'diskid')
     })
 
-    it('should fail if VM has conflictiong matadata', async () => {
+    it('should fail if VM has conflicting metadata', async () => {
         getInputMock.mockImplementation((name: string): string => {
             const inputs: Record<string, string> = {
                 ...requiredInputs,
+                ...ycSaJsonCredentials,
                 'vm-service-account-name': 'unknown'
             }
 
