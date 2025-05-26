@@ -34,7 +34,7 @@
   "dependencies": {
     "@actions/core": "^1.11.1",
     "@actions/github": "^6.0.0",
-    "@grpc/grpc-js": "^1.13.2",
+    "@grpc/grpc-js": "^1.13.4",
     "@yandex-cloud/nodejs-sdk": "^2.8.0",
     "mustache": "^4.2.0",
     "axios": "^1.9.0"
