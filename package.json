@@ -63,7 +63,7 @@
   },
   "dependencies": {
     "@actions/core": "^1.11.1",
-    "@actions/github": "^6.0.1",
+    "@actions/github": "^7.0.0",
     "@grpc/grpc-js": "^1.14.1",
     "@yandex-cloud/nodejs-sdk": "^2.9.0",
     "axios": "1.13.2",
